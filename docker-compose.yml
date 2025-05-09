@@ -1,48 +1,53 @@
 version: '3.8'
 
 services:
+  backend:
+    build:
+      context: ./surfsense_backend
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"    # تغيير المنفذ الخارجي إلى 8001
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/surfsense
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET}
+      - UNSTRUCTURED_API_KEY=${UNSTRUCTURED_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - db
+    networks:
+      - surfsense_network
+
   frontend:
     build:
       context: ./surfsense_web
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    volumes:
-      - ./surfsense_web:/app
-      - /app/node_modules
-    depends_on:
-      - backend
     environment:
       - NEXT_PUBLIC_API_URL=http://backend:8000
-
-  backend:
-    build:
-      context: ./surfsense_backend
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./surfsense_backend:/app
+      - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
     depends_on:
-      - db
-    env_file:
-      - ./surfsense_backend/.env
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/surfsense
-      - PYTHONPATH=/app
-      - UVICORN_LOOP=asyncio
-      - UNSTRUCTURED_HAS_PATCHED_LOOP=1
+      - backend
+    networks:
+      - surfsense_network
 
   db:
     image: ankane/pgvector:latest
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=surfsense
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - surfsense_network
 
 volumes:
-  postgres_data: 
+  postgres_data:
+
+networks:
+  surfsense_network:
+    driver: bridge
